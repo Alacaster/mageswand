@@ -116,7 +116,9 @@ public final class WandListener implements Listener {
             result = executeWandAction(WandTargeting.createLeftClickAirContext(this.plugin, player));
         }
 
-        boolean allowVanillaAttack = context.withinBaseEntityRange()
+        boolean entityRangeAllowed = context.withinBaseEntityRange()
+                || result.allowExtendedVanillaEntityInteractions();
+        boolean allowVanillaAttack = entityRangeAllowed
                 && event.willAttack()
                 && result.allowVanillaEntityAttack();
 
@@ -155,7 +157,7 @@ public final class WandListener implements Listener {
             result = executeWandAction(WandTargeting.createRightClickAirContext(this.plugin, player));
         }
 
-        boolean allowVanillaUse = context.withinBaseEntityRange()
+        boolean allowVanillaUse = (context.withinBaseEntityRange() || result.allowExtendedVanillaEntityInteractions())
                 && result.allowVanillaEntityUse();
 
         if (!allowVanillaUse) {
@@ -198,7 +200,7 @@ public final class WandListener implements Listener {
             result = executeWandAction(WandTargeting.createRightClickAirContext(this.plugin, player));
         }
 
-        boolean allowVanillaUse = context.withinBaseEntityRange()
+        boolean allowVanillaUse = (context.withinBaseEntityRange() || result.allowExtendedVanillaEntityInteractions())
                 && result.allowVanillaEntityUse();
 
         if (!allowVanillaUse) {

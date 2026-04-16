@@ -8,12 +8,13 @@ public record WandExecutionResult(
         boolean allowVanillaItemUse,
         boolean allowVanillaEntityAttack,
         boolean allowVanillaEntityUse,
-        boolean allowExtendedVanillaBlockInteractions
+        boolean allowExtendedVanillaBlockInteractions,
+        boolean allowExtendedVanillaEntityInteractions
 ) {
-    private static final WandExecutionResult PASS_THROUGH = new WandExecutionResult(0, false, false, true, true, true, true, false);
-    private static final WandExecutionResult DENY_ALL = new WandExecutionResult(0, false, false, false, false, false, false, false);
-    private static final WandExecutionResult NO_FUEL_FALLBACK = new WandExecutionResult(0, true, false, true, true, true, true, false);
-    private static final WandExecutionResult RETRY_AS_UNTARGETED = new WandExecutionResult(0, false, true, false, false, false, false, false);
+    private static final WandExecutionResult PASS_THROUGH = new WandExecutionResult(0, false, false, true, true, true, true, false, false);
+    private static final WandExecutionResult DENY_ALL = new WandExecutionResult(0, false, false, false, false, false, false, false, false);
+    private static final WandExecutionResult NO_FUEL_FALLBACK = new WandExecutionResult(0, true, false, true, true, true, true, false, false);
+    private static final WandExecutionResult RETRY_AS_UNTARGETED = new WandExecutionResult(0, false, true, false, false, false, false, false, false);
 
     public WandExecutionResult {
         if (fuelCost < 0) {
@@ -38,11 +39,11 @@ public record WandExecutionResult(
     }
 
     public static WandExecutionResult consumeAndDenyAll(int fuelCost) {
-        return new WandExecutionResult(fuelCost, false, false, false, false, false, false, false);
+        return new WandExecutionResult(fuelCost, false, false, false, false, false, false, false, false);
     }
 
     public static WandExecutionResult consumeAndPassThrough(int fuelCost) {
-        return new WandExecutionResult(fuelCost, false, false, true, true, true, true, false);
+        return new WandExecutionResult(fuelCost, false, false, true, true, true, true, false, false);
     }
 
     public static WandExecutionResult of(
@@ -60,6 +61,7 @@ public record WandExecutionResult(
                 allowVanillaItemUse,
                 allowVanillaEntityAttack,
                 allowVanillaEntityUse,
+                false,
                 false
         );
     }
@@ -73,7 +75,8 @@ public record WandExecutionResult(
                 this.allowVanillaItemUse,
                 this.allowVanillaEntityAttack,
                 this.allowVanillaEntityUse,
-                this.allowExtendedVanillaBlockInteractions
+                this.allowExtendedVanillaBlockInteractions,
+                this.allowExtendedVanillaEntityInteractions
         );
     }
 
@@ -86,7 +89,8 @@ public record WandExecutionResult(
                 this.allowVanillaItemUse,
                 this.allowVanillaEntityAttack,
                 this.allowVanillaEntityUse,
-                this.allowExtendedVanillaBlockInteractions
+                this.allowExtendedVanillaBlockInteractions,
+                this.allowExtendedVanillaEntityInteractions
         );
     }
 
@@ -99,7 +103,8 @@ public record WandExecutionResult(
                 this.allowVanillaItemUse,
                 this.allowVanillaEntityAttack,
                 this.allowVanillaEntityUse,
-                this.allowExtendedVanillaBlockInteractions
+                this.allowExtendedVanillaBlockInteractions,
+                this.allowExtendedVanillaEntityInteractions
         );
     }
 
@@ -112,7 +117,8 @@ public record WandExecutionResult(
                 this.allowVanillaItemUse,
                 this.allowVanillaEntityAttack,
                 this.allowVanillaEntityUse,
-                this.allowExtendedVanillaBlockInteractions
+                this.allowExtendedVanillaBlockInteractions,
+                this.allowExtendedVanillaEntityInteractions
         );
     }
 
@@ -125,7 +131,8 @@ public record WandExecutionResult(
                 allowVanillaItemUse,
                 this.allowVanillaEntityAttack,
                 this.allowVanillaEntityUse,
-                this.allowExtendedVanillaBlockInteractions
+                this.allowExtendedVanillaBlockInteractions,
+                this.allowExtendedVanillaEntityInteractions
         );
     }
 
@@ -138,7 +145,8 @@ public record WandExecutionResult(
                 this.allowVanillaItemUse,
                 allowVanillaEntityAttack,
                 this.allowVanillaEntityUse,
-                this.allowExtendedVanillaBlockInteractions
+                this.allowExtendedVanillaBlockInteractions,
+                this.allowExtendedVanillaEntityInteractions
         );
     }
 
@@ -151,7 +159,8 @@ public record WandExecutionResult(
                 this.allowVanillaItemUse,
                 this.allowVanillaEntityAttack,
                 allowVanillaEntityUse,
-                this.allowExtendedVanillaBlockInteractions
+                this.allowExtendedVanillaBlockInteractions,
+                this.allowExtendedVanillaEntityInteractions
         );
     }
 
@@ -164,7 +173,22 @@ public record WandExecutionResult(
                 this.allowVanillaItemUse,
                 this.allowVanillaEntityAttack,
                 this.allowVanillaEntityUse,
-                allowExtendedVanillaBlockInteractions
+                allowExtendedVanillaBlockInteractions,
+                this.allowExtendedVanillaEntityInteractions
+        );
+    }
+
+    public WandExecutionResult withAllowExtendedVanillaEntityInteractions(boolean allowExtendedVanillaEntityInteractions) {
+        return new WandExecutionResult(
+                this.fuelCost,
+                this.triggerNoFuelFallback,
+                this.retryAsUntargetedInteraction,
+                this.allowVanillaBlockUse,
+                this.allowVanillaItemUse,
+                this.allowVanillaEntityAttack,
+                this.allowVanillaEntityUse,
+                this.allowExtendedVanillaBlockInteractions,
+                allowExtendedVanillaEntityInteractions
         );
     }
 }

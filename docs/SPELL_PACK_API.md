@@ -28,6 +28,8 @@ External spell jars should treat only these classes as stable:
 - `WandConstants`
 - `WandClientBiomes`
 
+`WandExecutor` provides six interaction callbacks plus `onUnhandledInteraction(WandContext)` as a shared default path for any interaction method your executor does not override. By default unhandled interactions return `WandExecutionResult.passThrough()`, but executors can override `onUnhandledInteraction` to globally deny or customize fallback behavior.
+
 `WandContext` exposes the owning Bukkit `Plugin` as `context.plugin()`. That gives external executors the plugin handle they need for scheduler-owned or plugin-owned Paper calls without exposing the concrete `MagesWand` class.
 
 ## What external spell projects should compile against
