@@ -1,101 +1,151 @@
-# MagesWand simplified project
+# MagesWand
 
-This repository is a cleaned and consolidated version of the recovered project, simplified to keep only the two pieces that matter most in practice:
+This repository is a wand engine for Paper. The core plugin turns Minecraft interaction events into a stable spell-execution model, and external spell jars provide the actual spell behavior through `WandExecutor` implementations.
 
-- `mageswand-core` — the Paper plugin and the executor-facing public types
-- `mageswand-spell-pack` — the recovered external spell pack with the four executor classes
+The project is split into two practical pieces:
 
-There is no separate API module in this version. The public executor contract now lives directly in the main plugin source tree, and external spell jars compile against the built `mageswand-core` jar plus the Paper API.
+`mageswand-core` is the real plugin. It listens for input, resolves fuel, builds a stable execution snapshot, runs the selected executor, and applies the result back to the original Paper event.
 
-## What this project is
+`mageswand-spell-pack` is example content. It contains executor classes that show the kinds of spells the core is designed to support.
 
-The core plugin is a wand engine:
+## What the core makes easier for executor authors
 
-1. it listens for wand interactions
-2. turns those interactions into a normalized `WandContext`
-3. looks up the offhand fuel item in `wand-fuels.json`
-4. instantiates and runs the configured `WandExecutor`
-5. applies the executor result to vanilla interaction handling and fuel consumption
+The biggest thing the core buys you is that executor authors do not have to become accidental event-system experts just to write a spell. In raw Paper plugin code, a spell author usually ends up re-solving the same annoying problems over and over: which interaction event actually “owns” the click, whether a click on an entity should really count as an entity-targeted spell, how to consume fuel without every spell mutating inventory differently, and how to stop vanilla behavior from leaking through in ways that make the spell feel inconsistent. The core centralizes those decisions so executor authors can mostly think in terms of “what spell should happen for this interaction” rather than “how do I survive Bukkit and Paper input edge cases.”
 
-The spell pack is just a jar full of `WandExecutor` implementations. At runtime, the plugin scans `plugins/mageswand/spells/` for jars and loads concrete executor classes from them.
+The clever part is that the core does not just pass through raw events. It first normalizes them into a `WandContext`, which is a snapshot of the click with already-computed targeting and range information. That means an executor gets the player, the wand, the offhand fuel item, the interaction family, the looked-at entity or block when one exists, a target point, a distance, the player’s base block and entity interaction ranges, and some convenience helpers. That sounds small until you realize how much ugly duplicated code disappears once every spell stops doing its own half-correct target reconstruction.
 
-## Main simplifications in this version
+The second clever part is that executor authors return a `WandExecutionResult` instead of directly trying to control everything themselves. That result is not just “success” or “failure.” It lets a spell say how much fuel to consume, whether the engine should trigger the no-fuel fallback path, whether this targeted interaction should be retried as an untargeted one, whether vanilla block or item or entity behavior should still be allowed afterward, and whether extended vanilla block interactions should be enabled. In other words, the executor describes intent and the listener owns the messy platform behavior. That is a much cleaner boundary than making every spell manually cancel events, mutate inventory, and rediscover the same edge cases.
 
-- Removed the separate `mageswand-api` module
-- Switched `mageswand-spell-pack` to compile against `:mageswand-core`
-- Removed the external example project that depended on the deleted API module
-- Kept the runtime spell-jar loading model
-- Kept the optional ProtocolLib biome bridge
-- Added a few code-quality fixes called out in `REVIEW_AND_CHANGES.md`
+A third smart design choice is the retry-as-untargeted flow. Sometimes Paper gives you a real entity interaction event, but from the spell’s point of view that entity is not the meaningful spell target. Maybe the player clicked an entity that is technically reachable by the item interaction system but too far away for the spell’s own design. Instead of forcing every spell to duplicate “if target invalid, fall back to air cast behavior,” the executor can return `WandExecutionResult.retryAsUntargeted()`, and the core will rebuild the interaction as the untargeted version and run the executor again. This is a very specific little trick, but it is exactly the kind of trick that makes a spell API feel thoughtful instead of merely existing.
 
-## Build
+The fuel system also saves a lot of glue code. Executors do not need to parse config or decide which spell class to instantiate. The core reads `wand-fuels.json`, matches the offhand item to a registered executor, instantiates that class, and then handles fuel consumption after the cast according to the returned result. Because the engine owns fuel mutation, dynamic-cost spells become straightforward instead of turning into little inventory-management engines on their own.
 
-From the repository root:
+The existing executors show the sort of capabilities this design supports. `AmethystShardWandExecutor` uses different behavior for air, block, and entity interactions and also falls back from invalid targeted interactions into untargeted movement-style behavior. `LapisLazuliWandExecutor` launches fireballs and uses context-aware branching based on the actual target and the player identity. `SnowBlockStormWandExecutor` uses scheduler-owned follow-up behavior and optional client-side biome spoofing through `WandClientBiomes`, which shows that executors can do time-based effects and optional platform integrations without needing direct access to internal engine classes. `DirtBarrelReachWandExecutor` shows the opposite end of the scale: a tiny executor can simply declare “allow this very specific kind of extended block interaction” and let the engine do the rest.
 
-```bash
-./gradlew :mageswand-core:build
-./gradlew :mageswand-spell-pack:build
+The practical outcome is that a spell author gets to work at the level of gameplay rules. You ask questions like “what should left click on an entity do,” “how much fuel should that branch cost,” “should vanilla continue afterward,” and “if this target is not meaningful, should I retry as untargeted.” You do not spend most of your time reinventing targeting, event cancellation, or fuel bookkeeping.
+
+## Actual API usage
+
+An external spell jar should compile against the built `mageswand-core` jar from this repository and the Paper API. There is no separate API module in this version. The stable contract is simply a small set of executor-facing types that live inside the core module: `WandExecutor`, `WandContext`, `WandExecutionResult`, `WandInteractionType`, `WandTargetType`, `WandConstants`, and `WandClientBiomes`.
+
+A spell class needs only three things. It must implement `WandExecutor`. It must be concrete. It must have a public no-argument constructor. At runtime, the core scans `plugins/mageswand/spells/` for jars, discovers executor implementations, and then instantiates the class named in `wand-fuels.json`.
+
+Here is the smallest possible executor:
+
+```java
+package com.example.spells;
+
+import com.firstmage.mageswand.wand.WandContext;
+import com.firstmage.mageswand.wand.WandExecutionResult;
+import com.firstmage.mageswand.wand.WandExecutor;
+
+public final class SimpleBurstExecutor implements WandExecutor {
+    @Override
+    public WandExecutionResult onRightClickAir(WandContext context) {
+        context.player().sendMessage("Burst!");
+        return WandExecutionResult.consumeAndDenyAll(1);
+    }
+}
 ```
 
-Artifacts will be placed in each module's `build/libs/` directory.
+That example shows the basic rhythm. Read what you need from `WandContext`, perform the spell effect, then return a `WandExecutionResult` describing what the engine should do next. `consumeAndDenyAll(1)` means “spend one fuel and do not allow vanilla follow-through.” If your spell wants to do nothing and let Minecraft behave normally, return `WandExecutionResult.passThrough()`. If your spell wants the normal no-fuel penalty path, return `WandExecutionResult.noFuelFallback()`.
 
-## Runtime notes
+`WandExecutor` is shaped around interaction families instead of around raw Paper event classes. The dispatch methods are `onLeftClickAir`, `onLeftClickBlock`, `onLeftClickEntityAttack`, `onRightClickAir`, `onRightClickBlock`, and `onRightClickEntityUse`. You usually override only the ones that matter. The default implementation for every method is `passThrough()`, so you do not need to write empty branches.
 
-- Put the built core plugin jar on the server as a normal Paper plugin.
-- Put the built spell-pack jar into `plugins/mageswand/spells/`.
-- Copy `examples/wand-fuels.with-spell-pack.json` into `plugins/mageswand/wand-fuels.json` and adjust as needed.
-- ProtocolLib is optional. If it is present, the client-biome bridge is installed. If it is absent, biome spoofing becomes a no-op.
+`WandContext` is the main input object. The fields you will use most often are `player()`, `wand()`, `offhandFuel()`, `interactionType()`, `targetEntity()`, `targetBlock()`, `interactionPoint()`, `targetLocation()`, `distanceToTarget()`, `withinBaseEntityRange()`, and `withinBaseBlockRange()`. It also includes helpers like `isLeftClick()`, `isRightClick()`, `isBlockInteraction()`, `isEntityInteraction()`, `isFirstMageUser()`, and `isTargetingFirstMage()`. Those last two are project-specific conveniences rather than universal API ideas, but they are available because your current spell design uses them.
 
-## External spell jars
+A more realistic executor often looks like this:
 
-External spell jars should compile against:
+```java
+package com.example.spells;
 
-- the built `mageswand-core` jar from this project
-- the Paper API
+import com.firstmage.mageswand.wand.WandContext;
+import com.firstmage.mageswand.wand.WandExecutionResult;
+import com.firstmage.mageswand.wand.WandExecutor;
+import org.bukkit.Particle;
 
-They should only use the public executor-facing classes:
+public final class BlinkOrMarkExecutor implements WandExecutor {
+    @Override
+    public WandExecutionResult onRightClickEntityUse(WandContext context) {
+        if (context.targetEntity() == null) {
+            return WandExecutionResult.retryAsUntargeted();
+        }
 
-- `WandExecutor`
-- `WandContext`
-- `WandExecutionResult`
-- `WandInteractionType`
-- `WandTargetType`
-- `WandConstants`
-- `WandClientBiomes`
+        if (context.distanceToTarget() > 8.0D) {
+            return WandExecutionResult.retryAsUntargeted();
+        }
 
-They should not depend on internal engine classes such as `FuelRegistry`, `WandListener`, `WandItems`, `WandTargeting`, or `MagesWand`.
+        context.targetEntity().getWorld().spawnParticle(
+                Particle.ENCHANT,
+                context.targetEntity().getLocation().add(0.0D, 1.0D, 0.0D),
+                25
+        );
 
-## Useful Gradle tasks
+        return WandExecutionResult.consumeAndDenyAll(1);
+    }
 
-Build and compile tasks from the repository root:
+    @Override
+    public WandExecutionResult onRightClickAir(WandContext context) {
+        context.player().teleport(context.player().getLocation().add(context.lookDirection().multiply(5.0D)));
+        return WandExecutionResult.consumeAndDenyAll(1);
+    }
+}
+```
+
+That pattern is worth understanding because it uses one of the core’s best ideas. The entity-use branch does not manually call the air-cast branch. It simply says “this entity target is not meaningful for my spell, retry this interaction as untargeted,” and the listener handles the reinterpretation. That keeps the executor simpler and keeps the fallback policy in one place.
+
+If you need scheduled follow-up work, use `context.plugin()` rather than depending on the concrete `MagesWand` class. That is the intended way for an external executor to schedule Bukkit tasks safely while still remaining outside the internal engine implementation.
+
+```java
+context.player().getServer().getScheduler().runTaskLater(
+        context.plugin(),
+        () -> context.player().sendMessage("Delayed effect"),
+        40L
+);
+```
+
+If you want optional client-side biome spoofing, use `WandClientBiomes`. It is safe to call because the adapter can be unavailable when ProtocolLib is not installed.
+
+```java
+if (WandClientBiomes.isAvailable()) {
+    WandClientBiomes.spoofForDuration(
+            context.player(),
+            org.bukkit.NamespacedKey.minecraft("snowy_taiga"),
+            20L * 8L
+    );
+}
+```
+
+For registration, place your built spell jar into `plugins/mageswand/spells/` and add a matching entry to `plugins/mageswand/wand-fuels.json`. The loader accepts either a top-level array of mappings or an object with a `mappings` array. A simple object-form example looks like this:
+
+```json
+{
+  "mappings": [
+    {
+      "fuel": "SNOW_BLOCK",
+      "spellName": "Snow Storm",
+      "spellDescription": "Right click to call a localized snowstorm.",
+      "executorClass": "com.example.spells.SnowStormExecutor"
+    }
+  ]
+}
+```
+
+The important field is `executorClass`, which must be the fully qualified class name of your executor. The `fuel` field identifies the offhand item that selects the spell. The loader supports material-only matching and also exact item-signature matching for more specialized items.
+
+The safest rule for external executors is simple: depend only on the executor-facing types and Paper API, and do not reach into internal engine classes like `FuelRegistry`, `WandListener`, `WandItems`, `WandTargeting`, or `MagesWand`. The moment a spell jar starts leaning on those internals, you lose the whole benefit of having a stable executor contract in the first place.
+
+For local development from the root of this repository, the useful tasks are still:
 
 ```bash
 ./gradlew compileCore
 ./gradlew compileAll
 ./gradlew buildCoreJar
 ./gradlew buildSpellPackJar
-./gradlew buildRuntimeArtifacts
-```
-
-Selected spell-pack builds:
-
-```bash
-./gradlew :mageswand-spell-pack:listSpellExecutors
 ./gradlew buildSelectedSpellPackJar -PspellExecutors=AmethystShardWandExecutor,SnowBlockStormWandExecutor
-```
-
-Local Paper runs:
-
-```bash
 ./gradlew runServer
 ./gradlew runServerCoreOnly
 ./gradlew runServerSelected -PspellExecutors=AmethystShardWandExecutor,SnowBlockStormWandExecutor
 ```
 
-`runServer` uses the full spell pack and writes the example `wand-fuels.json` into `run/plugins/mageswand/`.
-
-`runServerCoreOnly` writes an empty `wand-fuels.json` into `run-core-only/plugins/mageswand/`.
-
-`runServerSelected` builds a spell-pack jar containing only the selected executors and generates a matching `wand-fuels.json` inside `run-selected/plugins/mageswand/`.
-
-Executor names can be passed either as simple class names such as `SnowBlockStormWandExecutor` or as fully-qualified class names.
+So the working mental model is this: the core owns input normalization, targeting truth, fuel resolution, event follow-through, and retry behavior; the executor owns spell rules and returns a result describing what should happen next. That is the contract.
