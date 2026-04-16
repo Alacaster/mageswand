@@ -119,6 +119,8 @@ It currently carries:
 - `allowVanillaItemUse`
 - `allowVanillaEntityAttack`
 - `allowVanillaEntityUse`
+- `allowExtendedVanillaBlockInteractions`
+- `allowExtendedVanillaEntityInteractions`
 
 This record exists because one boolean was never enough.
 
@@ -137,6 +139,12 @@ Important static factories:
 - `retryAsUntargeted()`
 - `consumeAndDenyAll(int fuelCost)`
 - `consumeAndPassThrough(int fuelCost)`
+
+Extended vanilla interaction flags:
+
+- `allowExtendedVanillaBlockInteractions` lets a spell explicitly allow vanilla block/item follow-through even when the click is outside the player’s base block range.
+- `allowExtendedVanillaEntityInteractions` does the same for vanilla entity attack/use outside base entity range.
+- these only grant range; the normal per-interaction `allowVanilla...` flags still decide whether the specific vanilla interaction is allowed.
 
 Important note: the boolean accessor on the record is named `retryAsUntargetedInteraction()`, but the factory method is named `retryAsUntargeted()`. That naming split exists on purpose to avoid the Java record accessor collision that bit the codebase earlier.
 
@@ -182,6 +190,33 @@ A simple decision checklist for each method:
 - if the target is not meaningful, do I want `retryAsUntargeted()`?
 - if the spell succeeds, how much fuel should it cost?
 - should vanilla continue after the spell or should it be denied?
+
+If you want explicit behavior for interaction families your spell does not implement, override `onUnhandledInteraction` once:
+
+```java
+@Override
+public WandExecutionResult onUnhandledInteraction(WandContext context) {
+    return WandExecutionResult.denyAll(); // or passThrough()
+}
+```
+
+That is the easiest way to choose a consistent default for all six interaction types without overriding each method.
+
+Minimal executor example (only right-click air casts, everything else blocked):
+
+```java
+public final class MinimumWandExecutor implements WandExecutor {
+    @Override
+    public WandExecutionResult onRightClickAir(WandContext context) {
+        return WandExecutionResult.consumeAndDenyAll(1);
+    }
+
+    @Override
+    public WandExecutionResult onUnhandledInteraction(WandContext context) {
+        return WandExecutionResult.denyAll();
+    }
+}
+```
 
 ## A practical rule for targeted spells
 

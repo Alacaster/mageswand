@@ -13,26 +13,30 @@ public interface WandExecutor {
     }
 
     default WandExecutionResult onLeftClickAir(WandContext context) {
-        return WandExecutionResult.passThrough();
+        return onUnhandledInteraction(context);
     }
 
     default WandExecutionResult onLeftClickBlock(WandContext context) {
-        return WandExecutionResult.passThrough();
+        return onUnhandledInteraction(context);
     }
 
     default WandExecutionResult onLeftClickEntityAttack(WandContext context) {
-        return WandExecutionResult.passThrough();
+        return onUnhandledInteraction(context);
     }
 
     default WandExecutionResult onRightClickAir(WandContext context) {
-        return WandExecutionResult.passThrough();
+        return onUnhandledInteraction(context);
     }
 
     default WandExecutionResult onRightClickBlock(WandContext context) {
-        return WandExecutionResult.passThrough();
+        return onUnhandledInteraction(context);
     }
 
     default WandExecutionResult onRightClickEntityUse(WandContext context) {
+        return onUnhandledInteraction(context);
+    }
+
+    default WandExecutionResult onUnhandledInteraction(WandContext context) {
         return WandExecutionResult.passThrough();
     }
 }
