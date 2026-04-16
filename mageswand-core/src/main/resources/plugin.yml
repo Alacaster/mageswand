@@ -1,0 +1,18 @@
+name: mageswand
+version: '${version}'
+
+main: com.firstmage.mageswand.MagesWand
+api-version: '1.21.11'
+load: POSTWORLD
+
+softdepend: [ProtocolLib]
+
+description: ${description}
+authors: [ FirstMage ]
+permissions:
+  mageswand.command:
+    description: Access to all /wand admin commands.
+    default: op
+  mageswand.spell.oponly:
+    description: Allows use of spells marked as operator-only.
+    default: op

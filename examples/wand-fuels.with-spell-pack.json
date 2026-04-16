@@ -1,0 +1,22 @@
+[
+  {
+    "spellName": "Amethyst Shard",
+    "fuel": "AMETHYST_SHARD",
+    "executorClass": "com.firstmage.mageswand.wand.executor.AmethystShardWandExecutor"
+  },
+  {
+    "spellName": "Dirt Barrel Reach",
+    "fuel": "DIRT",
+    "executorClass": "com.firstmage.mageswand.wand.executor.DirtBarrelReachWandExecutor"
+  },
+  {
+    "spellName": "Lapis Lazuli",
+    "fuel": "LAPIS_LAZULI",
+    "executorClass": "com.firstmage.mageswand.wand.executor.LapisLazuliWandExecutor"
+  },
+  {
+    "spellName": "Snow Block Storm",
+    "fuel": "SNOW_BLOCK",
+    "executorClass": "com.firstmage.mageswand.wand.executor.SnowBlockStormWandExecutor"
+  }
+]
